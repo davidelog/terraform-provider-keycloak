@@ -18,6 +18,7 @@ var (
 	keycloakLdapUserFederationSearchScopes          = []string{"ONE_LEVEL", "SUBTREE"}
 	keycloakLdapUserFederationTruststoreSpiSettings = []string{"ALWAYS", "ONLY_FOR_LDAPS", "NEVER"}
 	keycloakUserFederationCachePolicies             = []string{"DEFAULT", "EVICT_DAILY", "EVICT_WEEKLY", "MAX_LIFESPAN", "NO_CACHE"}
+	keycloakLdapUserFederationReferralSettings      = []string{"ignore", "follow"}
 )
 
 func resourceKeycloakLdapUserFederation() *schema.Resource {
@@ -195,6 +196,12 @@ func resourceKeycloakLdapUserFederation() *schema.Resource {
 				Default:     true,
 				Description: "When true, Keycloak assumes the LDAP server supports pagination.",
 			},
+			"referral": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: validation.StringInSlice(keycloakLdapUserFederationReferralSettings, false),
+				Description:  "Can be one of `ignore` or `follow`. When `follow`, Keycloak will follow referrals returned by the LDAP server. If not specified, Keycloak will use its default behavior.",
+			},
 
 			"batch_size_for_sync": {
 				Type:        schema.TypeInt,
@@ -361,6 +368,12 @@ func getLdapUserFederationFromData(data *schema.ResourceData, realmInternalId st
 		ChangedSyncPeriod: data.Get("changed_sync_period").(int),
 	}
 
+	if referral, ok := data.GetOk("referral"); ok {
+		ldapUserFederation.FollowReferrals = referral.(string)
+	} else {
+		ldapUserFederation.FollowReferrals = ""
+	}
+
 	if cache, ok := data.GetOk("cache"); ok {
 		cache := cache.([]interface{})
 		cacheData := cache[0].(map[string]interface{})
@@ -427,6 +440,10 @@ func setLdapUserFederationData(data *schema.ResourceData, ldap *keycloak.LdapUse
 	data.Set("connection_timeout", ldap.ConnectionTimeout)
 	data.Set("read_timeout", ldap.ReadTimeout)
 	data.Set("pagination", ldap.Pagination)
+
+	if ldap.FollowReferrals != "" {
+		data.Set("referral", ldap.FollowReferrals)
+	}
 
 	if ldap.AllowKerberosAuthentication {
 		kerberosSettings := make(map[string]interface{})

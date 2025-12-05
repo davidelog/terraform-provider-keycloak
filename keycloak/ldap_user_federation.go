@@ -40,6 +40,7 @@ type LdapUserFederation struct {
 	ReadTimeout                 string // duration string (ex: 1h30m)
 	Pagination                  bool
 	ConnectionPooling           bool
+	FollowReferrals             string // can be "ignore" or "follow", empty string means use Keycloak default
 
 	ServerPrincipal                      string
 	UseKerberosForPasswordAuthentication bool
@@ -170,6 +171,14 @@ func convertFromLdapUserFederationToComponent(ldap *LdapUserFederation) (*compon
 		componentConfig["useTruststoreSpi"] = []string{"ldapsOnly"}
 	} else {
 		componentConfig["useTruststoreSpi"] = []string{strings.ToLower(ldap.UseTruststoreSpi)}
+	}
+
+	if ldap.FollowReferrals != "" {
+		if ldap.FollowReferrals == "follow" {
+			componentConfig["followReferrals"] = []string{"true"}
+		} else if ldap.FollowReferrals == "ignore" {
+			componentConfig["followReferrals"] = []string{"false"}
+		}
 	}
 
 	if ldap.ConnectionTimeout != "" {
@@ -374,6 +383,20 @@ func convertFromComponentToLdapUserFederation(component *component) (*LdapUserFe
 		ldap.UseTruststoreSpi = "ONLY_FOR_LDAPS"
 	} else {
 		ldap.UseTruststoreSpi = strings.ToUpper(useTruststoreSpi)
+	}
+
+	if followReferrals, ok := component.getConfigOk("followReferrals"); ok {
+		followReferralsBool, err := parseBoolAndTreatEmptyStringAsFalse(followReferrals)
+		if err != nil {
+			return nil, err
+		}
+		if followReferralsBool {
+			ldap.FollowReferrals = "follow"
+		} else {
+			ldap.FollowReferrals = "ignore"
+		}
+	} else {
+		ldap.FollowReferrals = ""
 	}
 
 	if connectionTimeout, ok := component.getConfigOk("connectionTimeout"); ok {
