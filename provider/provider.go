@@ -1,5 +1,6 @@
 package provider
 
+// Provider package for Keycloak Terraform provider
 import (
 	"context"
 	"fmt"
